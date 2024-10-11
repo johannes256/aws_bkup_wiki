@@ -9,7 +9,7 @@ BACKUP_DIR="/home/johannes/mediawiki_backup"
 LAST_BACKUP_MD5="$BACKUP_DIR/last_backup.md5"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_NAME="mediawiki_backup_$TIMESTAMP.sql"
-MYSQLDUMP="$BACKUP_DIR/$BACKUP_NAME.sql"
+MYSQLDUMP="$BACKUP_DIR/$BACKUP_NAME"
 
 # Ensure backup directory exists
 mkdir -p $BACKUP_DIR
