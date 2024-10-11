@@ -32,10 +32,6 @@ else
     exit 1
 fi
 
-S3_BUCKET="my-wiki-backups"
-DB_NAME="wikidb"
-DB_USER="wikiuser"
-DB_PASS="securepassword"
 BACKUP_DIR="$(dirname "$0")/mediawiki_backup"
 LAST_BACKUP_MD5="$BACKUP_DIR/last_backup.md5"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -43,7 +39,6 @@ BACKUP_NAME="mediawiki_backup_$TIMESTAMP.sql"
 ZIP_NAME="mediawiki_backup_$TIMESTAMP.zip"  # Zip file name
 MYSQLDUMP="$BACKUP_DIR/$BACKUP_NAME"
 ZIP_FILE="$BACKUP_DIR/$ZIP_NAME"  # Full path to the zip file
-ADMIN_EMAIL="admin@mydomain.com"  # Email address to notify
 
 # Ensure backup directory exists
 mkdir -p $BACKUP_DIR
