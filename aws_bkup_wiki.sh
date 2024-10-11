@@ -22,6 +22,16 @@
 #  ***************************************************************************/
 
 # Configuration
+
+# Load configuration from the config file
+CONFIG_FILE="$(dirname "$0")/aws_bkup_wiki.conf"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+else
+    echo "Configuration file not found: $CONFIG_FILE"
+    exit 1
+fi
+
 S3_BUCKET="my-wiki-backups"
 DB_NAME="wikidb"
 DB_USER="wikiuser"
