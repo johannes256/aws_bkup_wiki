@@ -33,6 +33,7 @@ BACKUP_NAME="mediawiki_backup_$TIMESTAMP.sql"
 ZIP_NAME="mediawiki_backup_$TIMESTAMP.zip"  # Zip file name
 MYSQLDUMP="$BACKUP_DIR/$BACKUP_NAME"
 ZIP_FILE="$BACKUP_DIR/$ZIP_NAME"  # Full path to the zip file
+ADMIN_EMAIL="admin@mydomain.com"  # Email address to notify
 
 # Ensure backup directory exists
 mkdir -p $BACKUP_DIR
@@ -62,8 +63,16 @@ if [ "$NEW_MD5" != "$OLD_MD5" ]; then
   
   # Save the new MD5 checksum
   echo $NEW_MD5 > $LAST_BACKUP_MD5
+
+  # Send email notification for new backup
+  echo "A new MediaWiki database backup ($ZIP_NAME) has been created and uploaded to S3." | mail -s "New MediaWiki backup created" $ADMIN_EMAIL
+
 else
+
   echo "No changes detected, skipping backup."
+
+  # Send email notification for no new backup
+  echo "No changes detected in the MediaWiki database; no backup was created." | mail -s "No new Mediawiki backup" $ADMIN_EMAIL
   
   # Cleanup
   rm "$ZIP_FILE"
