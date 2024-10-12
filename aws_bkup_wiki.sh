@@ -33,7 +33,7 @@ else
 fi
 
 BACKUP_DIR="$(dirname "$0")/mediawiki_backup"
-LAST_BACKUP_MD5="$BACKUP_DIR/last_backup.md5"
+LAST_BACKUP_INFO="$BACKUP_DIR/last_backup_info.txt"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_NAME="mediawiki_backup_$TIMESTAMP.sql"
 ZIP_NAME="mediawiki_backup_$TIMESTAMP.zip"  # Zip file name
@@ -51,23 +51,24 @@ echo "MediaWiki database dump created: $MYSQLDUMP"
 zip -j "$ZIP_FILE" "$MYSQLDUMP"
 echo "Database backup zipped: $ZIP_FILE"
 
-# Generate MD5 checksum of the zip backup
-NEW_MD5=$(md5sum "$ZIP_FILE" | awk '{ print $1 }')
+# Get the latest modification timestamp of the MediaWiki tables
+LAST_MODIFIED=$(mysql -u $DB_USER -p$DB_PASS -e "SELECT MAX(UNIX_TIMESTAMP(update_time)) FROM information_schema.tables WHERE table_schema='$DB_NAME';" | tail -n 1)
+echo "Last modified: $LAST_MODIFIED"
 
-# Compare with the last backup MD5 checksum
-if [ -f $LAST_BACKUP_MD5 ]; then
-  OLD_MD5=$(cat $LAST_BACKUP_MD5)
+# Read the last backup's modification timestamp from the stored file
+if [ -f $LAST_BACKUP_INFO ]; then
+  LAST_BACKUP_TIMESTAMP=$(cat $LAST_BACKUP_INFO)
 else
-  OLD_MD5=""
+  LAST_BACKUP_TIMESTAMP=0
 fi
 
-if [ "$NEW_MD5" != "$OLD_MD5" ]; then
-  # If the MD5 checksums differ, upload the new zip backup to S3
+if [ "$LAST_MODIFIED" -gt "$LAST_BACKUP_TIMESTAMP" ]; then
+  # If the database has been modified since the last backup, upload it to S3
   echo "New changes detected, uploading zip database backup to S3..."
   aws s3 cp "$ZIP_FILE" s3://$S3_BUCKET/$(basename "$ZIP_FILE")
-  
-  # Save the new MD5 checksum
-  echo $NEW_MD5 > $LAST_BACKUP_MD5
+
+  # Save the latest modification timestamp to the file
+  echo $LAST_MODIFIED > $LAST_BACKUP_INFO
 
   # Send email notification for new backup
   echo "A new MediaWiki database backup ($ZIP_NAME) has been created and uploaded to S3." | mail -s "New MediaWiki backup created" $ADMIN_EMAIL
