@@ -43,14 +43,6 @@ ZIP_FILE="$BACKUP_DIR/$ZIP_NAME"  # Full path to the zip file
 # Ensure backup directory exists
 mkdir -p $BACKUP_DIR
 
-# Dump the MediaWiki database
-mysqldump -u $DB_USER -p$DB_PASS $DB_NAME > $MYSQLDUMP
-echo "MediaWiki database dump created: $MYSQLDUMP"
-
-# Create a zip archive containing the SQL dump
-zip -j "$ZIP_FILE" "$MYSQLDUMP"
-echo "Database backup zipped: $ZIP_FILE"
-
 # Get the latest modification timestamp of the MediaWiki tables
 LAST_MODIFIED=$(mysql -u $DB_USER -p$DB_PASS -e "SELECT MAX(UNIX_TIMESTAMP(update_time)) FROM information_schema.tables WHERE table_schema='$DB_NAME';" | tail -n 1)
 echo "Last modified: $LAST_MODIFIED"
@@ -62,9 +54,20 @@ else
   LAST_BACKUP_TIMESTAMP=0
 fi
 
+# Check if the database has changed
 if [ "$LAST_MODIFIED" -gt "$LAST_BACKUP_TIMESTAMP" ]; then
-  # If the database has been modified since the last backup, upload it to S3
-  echo "New changes detected, uploading zip database backup to S3..."
+  echo "New changes detected, proceeding with the backup..."
+
+  # Dump the MediaWiki database
+  mysqldump -u $DB_USER -p$DB_PASS $DB_NAME > $MYSQLDUMP
+  echo "MediaWiki database dump created: $MYSQLDUMP"
+
+  # Create a zip archive containing the SQL dump
+  zip -j "$ZIP_FILE" "$MYSQLDUMP"
+  echo "Database backup zipped: $ZIP_FILE"
+
+  # Upload the zip archive to S3
+  echo "Uploading zip database backup to S3..."
   aws s3 cp "$ZIP_FILE" s3://$S3_BUCKET/$(basename "$ZIP_FILE")
 
   # Save the latest modification timestamp to the file
@@ -73,16 +76,12 @@ if [ "$LAST_MODIFIED" -gt "$LAST_BACKUP_TIMESTAMP" ]; then
   # Send email notification for new backup
   echo "A new MediaWiki database backup ($ZIP_NAME) has been created and uploaded to S3." | mail -s "New MediaWiki backup created" $ADMIN_EMAIL
 
-else
+  # Cleanup the SQL dump
+  rm "$MYSQLDUMP"
 
+else
   echo "No changes detected, skipping backup."
 
   # Send email notification for no new backup
-  echo "No changes detected in the MediaWiki database; no backup was created." | mail -s "No new Mediawiki backup" $ADMIN_EMAIL
-  
-  # Cleanup
-  rm "$ZIP_FILE"
+  echo "No changes detected in the MediaWiki database; no backup was created." | mail -s "No new MediaWiki backup" $ADMIN_EMAIL
 fi
-
-# Cleanup the SQL dump
-rm "$MYSQLDUMP"
