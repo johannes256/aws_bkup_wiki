@@ -43,8 +43,18 @@ ZIP_FILE="$BACKUP_DIR/$ZIP_NAME"  # Full path to the zip file
 # Ensure backup directory exists
 mkdir -p $BACKUP_DIR
 
-# Get the latest modification timestamp of the MediaWiki tables
-LAST_MODIFIED=$(mysql -u $DB_USER -p$DB_PASS -e "SELECT MAX(UNIX_TIMESTAMP(update_time)) FROM information_schema.tables WHERE table_schema='$DB_NAME';" | tail -n 1)
+# Get the latest modification timestamp from the relevant tables (revision, page, recentchanges)
+LAST_MODIFIED_REVISION=$(mysql -u $DB_USER -p$DB_PASS -e "SELECT MAX(UNIX_TIMESTAMP(rev_timestamp)) FROM $DB_NAME.revision;" | tail -n 1)
+LAST_MODIFIED_PAGE=$(mysql -u $DB_USER -p$DB_PASS -e "SELECT MAX(UNIX_TIMESTAMP(page_touched)) FROM $DB_NAME.page;" | tail -n 1)
+LAST_MODIFIED_RC=$(mysql -u $DB_USER -p$DB_PASS -e "SELECT MAX(UNIX_TIMESTAMP(rc_timestamp)) FROM $DB_NAME.recentchanges;" | tail -n 1)
+
+# Convert the timestamps to integers (trim decimal parts)
+LAST_MODIFIED_REVISION=$(printf "%.0f" "$LAST_MODIFIED_REVISION")
+LAST_MODIFIED_PAGE=$(printf "%.0f" "$LAST_MODIFIED_PAGE")
+LAST_MODIFIED_RC=$(printf "%.0f" "$LAST_MODIFIED_RC")
+
+# Find the most recent modification time
+LAST_MODIFIED=$(printf "%.0f" "$(echo -e "$LAST_MODIFIED_REVISION\n$LAST_MODIFIED_PAGE\n$LAST_MODIFIED_RC" | sort -n | tail -1)")
 echo "Last modified: $LAST_MODIFIED"
 
 # Read the last backup's modification timestamp from the stored file
@@ -54,7 +64,7 @@ else
   LAST_BACKUP_TIMESTAMP=0
 fi
 
-# Check if the database has changed
+# Check if the database has changed (based on timestamp)
 if [ "$LAST_MODIFIED" -gt "$LAST_BACKUP_TIMESTAMP" ]; then
   echo "New changes detected, proceeding with the backup..."
 
